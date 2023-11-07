@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -30,6 +30,27 @@ async function run() {
 
     const donationCollection = client.db("donationDB").collection("products");
 
+    app.get("/products", async (req, res) => {
+      try {
+        const products = donationCollection.find();
+        const result = await products.toArray();
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    app.get("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await donationCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
     app.post("/addProduct", async (req, res) => {
       try {
         const product = req.body;
@@ -37,7 +58,7 @@ async function run() {
         const result = await donationCollection.insertOne(product);
         res.send(result);
       } catch (error) {
-        console.log(error);
+        // console.log(error);
         res.send(error);
       }
     });

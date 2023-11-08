@@ -113,6 +113,7 @@ async function run() {
       }
     });
 
+    // patch a product
     app.patch("/products/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -136,6 +137,19 @@ async function run() {
           product,
           option
         );
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    // delete a product
+    app.delete("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        console.log(query);
+        const result = await donationCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
         res.send(error);

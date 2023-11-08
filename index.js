@@ -17,7 +17,7 @@ app.use(
     origin: [
       "https://food-donation-f7d5a.web.app",
       "https://food-donation-f7d5a.firebaseapp.com",
-      "http://localhost:5173",
+      // "http://localhost:5173",
     ],
     credentials: true,
   })

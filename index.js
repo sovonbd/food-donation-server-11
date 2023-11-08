@@ -30,6 +30,7 @@ async function run() {
 
     const donationCollection = client.db("donationDB").collection("products");
 
+    // get all the products
     app.get("/products", async (req, res) => {
       try {
         const products = donationCollection.find();
@@ -40,6 +41,18 @@ async function run() {
       }
     });
 
+    // get products based on user email
+    app.get("/products/user", async (req, res) => {
+      // console.log(req.query.userEmail);
+      let query = {};
+      if (req.query?.userEmail) {
+        query = { userEmail: req.query.userEmail };
+      }
+      const result = await donationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // get a product based on id
     app.get("/products/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -51,6 +64,7 @@ async function run() {
       }
     });
 
+    // create a product
     app.post("/addProduct", async (req, res) => {
       try {
         const product = req.body;
@@ -59,6 +73,71 @@ async function run() {
         res.send(result);
       } catch (error) {
         // console.log(error);
+        res.send(error);
+      }
+    });
+
+    // update a product
+    app.put("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const option = { upsert: true };
+        const updateProduct = req.body;
+        console.log(updateProduct);
+        const product = {
+          $set: {
+            foodName: updateProduct.foodName,
+            foodQuantity: updateProduct.foodQuantity,
+            date: updateProduct.date,
+            location: updateProduct.location,
+            foodImg: updateProduct.foodImg,
+            userDisplayName: updateProduct.userDisplayName,
+            userPhotoURL: updateProduct.userPhotoURL,
+            userEmail: updateProduct.userEmail,
+            requesterEmail: updateProduct.requesterEmail,
+            requestDate: updateProduct.requestDate,
+            donation: updateProduct.donation,
+            notes: updateProduct.notes,
+          },
+        };
+        // console.log(product);
+        const result = await donationCollection.updateOne(
+          filter,
+          product,
+          option
+        );
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    app.patch("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const option = { upsert: true };
+        const updateProduct = req.body;
+        console.log(updateProduct);
+        const product = {
+          $set: {
+            foodName: updateProduct.foodName,
+            foodQuantity: updateProduct.foodQuantity,
+            date: updateProduct.date,
+            location: updateProduct.location,
+            foodImg: updateProduct.foodImg,
+            notes: updateProduct.notes,
+          },
+        };
+        // console.log(product);
+        const result = await donationCollection.updateOne(
+          filter,
+          product,
+          option
+        );
+        res.send(result);
+      } catch (error) {
         res.send(error);
       }
     });

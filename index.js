@@ -96,8 +96,11 @@ async function run() {
             userPhotoURL: updateProduct.userPhotoURL,
             userEmail: updateProduct.userEmail,
             requesterEmail: updateProduct.requesterEmail,
+            requesterPhotoURL: updateProduct.requesterPhotoURL,
+            requesterName: updateProduct.requesterName,
             requestDate: updateProduct.requestDate,
             donation: updateProduct.donation,
+            status: "Pending",
             notes: updateProduct.notes,
           },
         };
@@ -136,6 +139,30 @@ async function run() {
           filter,
           product,
           option
+        );
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    // update the status
+    app.patch("/products/status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateProduct = req.body;
+        console.log(updateProduct);
+        const product = {
+          $set: {
+            status: updateProduct.status,
+          },
+        };
+        console.log(product);
+        const result = await donationCollection.updateOne(
+          filter,
+          product,
+          
         );
         res.send(result);
       } catch (error) {

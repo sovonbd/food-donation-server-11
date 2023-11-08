@@ -1,24 +1,44 @@
 const express = require("express");
-const cors = require("cors");
-const jwt = require("jsonwebtoken");
-
-const cookieParser = require("cookie-parser");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const cors = require("cors");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 
 const app = express();
+
 const port = process.env.PORT || 5000;
+const jwtSecret = process.env.ACCESS_TOKEN_SECRET;
 
 // middleware
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "https://food-donation-f7d5a.web.app",
+      "https://food-donation-f7d5a.firebaseapp.com",
+      "http://localhost:5173",
+    ],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(cookieParser());
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  // console.log("token in middleware", token);
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  jwt.verify(token, jwtSecret, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2dhdxvg.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -31,48 +51,33 @@ const client = new MongoClient(uri, {
   },
 });
 
-const verifyToken = (req, res, next) => {
-  const token = req.cookies?.token;
-  console.log("token in middleware", token);
-  if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
-  }
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: "unauthorized access" });
-    }
-    req.user = decoded;
-    next();
-  });
-};
-
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
 
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const donationCollection = client.db("donationDB").collection("products");
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log("user for token", user);
+      // console.log("user for token", user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "1h",
       });
       res
         .cookie("token", token, {
           httpOnly: true,
-          secure: true,
-          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
 
     app.post("/logout", async (req, res) => {
       const user = req.body;
-      console.log("logging out", user);
+      // console.log("logging out", user);
       res.clearCookie("token", { maxAge: 0 }).send({ success: true });
     });
 
@@ -90,7 +95,7 @@ async function run() {
     // get products based on user email
     app.get("/products/user", verifyToken, async (req, res) => {
       // console.log(req.query.userEmail);
-      console.log("token owner info", req.user);
+      // console.log("token owner info", req.user);
       if (req.user.email !== req.query.userEmail) {
         return res.status(403).send({ message: "forbidden access" });
       }
@@ -145,7 +150,7 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const option = { upsert: true };
         const updateProduct = req.body;
-        console.log(updateProduct);
+        // console.log(updateProduct);
         const product = {
           $set: {
             foodName: updateProduct.foodName,
@@ -184,7 +189,7 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const option = { upsert: true };
         const updateProduct = req.body;
-        console.log(updateProduct);
+        // console.log(updateProduct);
         const product = {
           $set: {
             foodName: updateProduct.foodName,
@@ -213,13 +218,13 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updateProduct = req.body;
-        console.log(updateProduct);
+        // console.log(updateProduct);
         const product = {
           $set: {
             status: updateProduct.status,
           },
         };
-        console.log(product);
+        // console.log(product);
         const result = await donationCollection.updateOne(filter, product);
         res.send(result);
       } catch (error) {
@@ -232,13 +237,13 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updateProduct = req.body;
-        console.log(updateProduct);
+        // console.log(updateProduct);
         const product = {
           $set: {
             requesterEmail: updateProduct.requesterEmail,
           },
         };
-        console.log(product);
+        // console.log(product);
         const result = await donationCollection.updateOne(filter, product);
         res.send(result);
       } catch (error) {
@@ -251,7 +256,7 @@ async function run() {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
-        console.log(query);
+        // console.log(query);
         const result = await donationCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
@@ -259,7 +264,7 @@ async function run() {
       }
     });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
@@ -277,3 +282,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`food donation server running at ${port}`);
 });
+

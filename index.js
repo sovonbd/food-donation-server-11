@@ -1,14 +1,24 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+const jwt = require("jsonwebtoken");
+
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
+
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2dhdxvg.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -21,6 +31,21 @@ const client = new MongoClient(uri, {
   },
 });
 
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  console.log("token in middleware", token);
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -29,6 +54,27 @@ async function run() {
     // Send a ping to confirm a successful connection
 
     const donationCollection = client.db("donationDB").collection("products");
+
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      console.log("user for token", user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+        })
+        .send({ success: true });
+    });
+
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logging out", user);
+      res.clearCookie("token", { maxAge: 0 }).send({ success: true });
+    });
 
     // get all the products
     app.get("/products", async (req, res) => {
@@ -42,11 +88,26 @@ async function run() {
     });
 
     // get products based on user email
-    app.get("/products/user", async (req, res) => {
+    app.get("/products/user", verifyToken, async (req, res) => {
       // console.log(req.query.userEmail);
+      console.log("token owner info", req.user);
+      if (req.user.email !== req.query.userEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
       let query = {};
       if (req.query?.userEmail) {
         query = { userEmail: req.query.userEmail };
+      }
+      const result = await donationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // get products based on user email
+    app.get("/request/user", async (req, res) => {
+      // console.log(req.query.userEmail);
+      let query = {};
+      if (req.query?.requesterEmail) {
+        query = { requesterEmail: req.query.requesterEmail };
       }
       const result = await donationCollection.find(query).toArray();
       res.send(result);
@@ -159,11 +220,26 @@ async function run() {
           },
         };
         console.log(product);
-        const result = await donationCollection.updateOne(
-          filter,
-          product,
-          
-        );
+        const result = await donationCollection.updateOne(filter, product);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    app.patch("/products/requesterEmail/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateProduct = req.body;
+        console.log(updateProduct);
+        const product = {
+          $set: {
+            requesterEmail: updateProduct.requesterEmail,
+          },
+        };
+        console.log(product);
+        const result = await donationCollection.updateOne(filter, product);
         res.send(result);
       } catch (error) {
         res.send(error);
